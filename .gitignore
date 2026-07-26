@@ -1,0 +1,96 @@
+# ===== 大文件 / 环境不进 git =====
+.venv/
+checkpoints/
+checkpoints_fresh/
+checkpoints_old/
+
+# ===== 模型权重 =====
+*.pth
+*.pt
+*.ckpt
+
+# ===== 示例音频 / 视频 =====
+*.mp3
+*.wav
+*.flac
+*.ogg
+*.opus
+*.m4a
+*.aac
+*.wma
+*.aiff
+*.aif
+*.mp4
+*.mkv
+*.avi
+*.mov
+
+# ===== 压缩包（新版官方 zip 等，本地保留即可）=====
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+
+# ===== 转录产物（MIDI 比较产物，不进库）=====
+compare_*.mid
+test_*.mid
+
+# ===== stem 分离临时产物 =====
+stem_*/
+*_stems/
+*_stem_output/
+D:\stem_amt_temp\
+
+# ===== Python =====
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+.Python
+build/
+developed-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== 日志 / 缓存 =====
+*.log
+*.cache
+.cache/
+.wandb/
+wandb/
+runs/
+tensorboard/
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 临时目录 =====
+_newcode/
+tmp/
+temp/
+*.tmp
+
+# ===== 其他 =====
+.claude/
+.colab_outputs/
+artifacts/
