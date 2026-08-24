@@ -11,27 +11,34 @@
 ```
 instrument-agnostic-amt-main/
 ├── oldversion-20260603/        # 旧版代码（6/3 基线 + 6/7 自己改的批量脚本）
-├── newversion-20260726/        # 新版官方代码（含鼓声模型 + 力度预测）
-├── checkpoints/                # [本地] 所有 .pth 模型权重（共享）
+├── newversion-20260726/        # 新版官方代码（含鼓声模型 + 力度预测）— 20260824 前的产线
+├── newversion-20260823/        # 最新官方代码（main b7beee9）— 现役产线
+├── expression-20260823/        # CC11 表情分支 fork — 已试过弃用
+├── checkpoints/                # [本地] 所有 .pth 模型权重（共享，13 个）
 ├── .venv/                      # [本地] Python 环境（共享）
 ├── Coup De Coeur.mp3           # [本地] 示例曲目
 └── README.md                   # 本文件
 ```
 
-两个版本**完全独立、互不污染**，共享根目录的 `checkpoints/` 和 `.venv/`。运行时工作目录设在根目录，两版都能从 `./checkpoints` 找到模型。
+各版本**完全独立、互不污染**，共享根目录的 `checkpoints/` 和 `.venv/`。运行时工作目录设在根目录，各版都能从 `./checkpoints` 找到模型。
 
 ---
 
-## 两个版本对比
+## 版本演进
 
-| | 旧版 `oldversion-20260603` | 新版 `newversion-20260726` |
-|---|---|---|
-| 代码日期 | 2026-06-03（核心）/ 06-07（infer/stem_infer 改动） | 2026-07-26（官方最新） |
-| 架构 | 散落 `.py` 文件 | 打包为 `instrument_agnostic_amt/` 包 |
-| 鼓声 | onset detection hack（频段滤波，底鼓军鼓易混） | ✅ 专用 `drums` 模型（6/24 上传） |
-| 力度 | 固定 100（1 档） | ✅ 力度预测模型（7/24，103 档 24-126） |
-| 分轨模型 | bass/vocal_harmony/guitar/other（4 个） | bass_v2/vocal_harmony/guitar_v1_5/other/drums（6 个） |
-| 入口 | `infer.py` / `stem_infer.py` | `infer.py` / `infer_velocity.py` |
+| | 旧版 `oldversion-20260603` | `newversion-20260726` | `newversion-20260823`（现役） |
+|---|---|---|---|
+| 代码日期 | 2026-06-03/07 | 2026-07-26 | 2026-08-23（main b7beee9） |
+| 架构 | 散落 `.py` 文件 | `instrument_agnostic_amt/` 包 | 同左 + Triton/Semi-CRF 提速、AMP |
+| 鼓声 | onset hack | ✅ drums 专用模型 | ✅ 同左 |
+| 力度 | 固定 100 | ✅ 103 档（7/24 模型） | ✅ 同左（权重未变） |
+| 乐器修正 | ✗ | ✗ | ✅ Instrument Refinement（8/8 模型） |
+| 节拍/和弦/调性 | ✗ | ✗ | ✅ best_beat_chord_key.pth（7/30） |
+| other stem 模型 | other | other | other_v1_5（8/19） |
+
+**2026-08-24 起所有新任务用 `newversion-20260823`**（`from infer_stem import run_stem_separated_transcription`，加 `refine_instruments=True, predict_beat_chord=True`，产物 `<曲名>_beat_chord.mid`）。旧任务产物不回溯。
+
+**CC11 表情分支**（`expression-20260823/`，fork of main）：纯 DSP 响度包络写 CC11，不区分乐器包络特性，实测听感别扭，**弃用**（对比文件在输出合集 `20260824/版本对比-雨后轻风有香/`）。
 
 ---
 
@@ -47,6 +54,11 @@ instrument-agnostic-amt-main/
 | 2026-07-15~16 | `best_model_bass_v2.pth` |
 | 2026-07-22 | `best_model_guitar_v1_5.pth` |
 | **2026-07-23~24** | 🎚️ `best_velocity_model.pth` 力度预测模型 |
+| **2026-07-30** | 🎼 `best_beat_chord_key.pth` 节拍/和弦/调性模型 |
+| **2026-08-08** | 🎻 `best_instrument_refinement.pth` 乐器修正模型 |
+| **2026-08-19** | `best_model_other_v1_5.pth` other stem 升级 |
+
+（8/21~23 另有大量纯性能优化提交：Semi-CRF Viterbi 提速、Triton 后端、AMP 默认开、stem-splitter 0.0.7、uv+PyTorch 2.13 迁移；原有 10 个权重 md5 未变。）
 
 ---
 
@@ -80,12 +92,14 @@ instrument-agnostic-amt-main/
 .venv/Scripts/python.exe oldversion-20260603/run_kuwo_fast.py
 ```
 
-### 新版 — 官方分轨流程（stem 分离 + 专用模型 + 力度预测）
+### 最新版（现役）— 官方分轨流程 + 乐器修正 + 节拍/和弦
 ```bash
-# 单文件（复刻 Colab 单元[10]的 run_stem_separated_transcription）
-PYTHONPATH=newversion-20260726 \
-  .venv/Scripts/python.exe newversion-20260726/run_compare_new.py
+PYTHONPATH=newversion-20260823/instrument-agnostic-amt-main \
+  .venv/Scripts/python.exe newversion-20260823/instrument-agnostic-amt-main/infer_stem.py \
+  --audio "音频.mp3" --output-root "输出目录" --refine-instruments --predict-beat-chord --cleanup-stems
 ```
+
+### 旧版 — 20260726 官方分轨流程（历史任务用）
 
 新版快速模式：
 ```bash
