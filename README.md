@@ -38,7 +38,9 @@ instrument-agnostic-amt-main/
 
 **2026-08-24 起所有新任务用 `newversion-20260823`**（`from infer_stem import run_stem_separated_transcription`，加 `refine_instruments=True, predict_beat_chord=True`，产物 `<曲名>_beat_chord.mid`）。旧任务产物不回溯。
 
-**CC11 表情分支**（`expression-20260823/`，fork of main）：纯 DSP 响度包络写 CC11，不区分乐器包络特性，实测听感别扭，**弃用**（对比文件在输出合集 `20260824/版本对比-雨后轻风有香/`）。
+**CC11 表情分支**（`expression-20260823/`，fork of main）：纯 DSP 响度包络写 CC11，无专门训练，不区分乐器包络特性。小提琴实测忽大忽小、力度跳变过大，**彻底弃用**（2026-08-25 定论）。
+
+**0824 版 vs 7 月版实听结论**：0824 乐器识别（尤其小提琴）明显更强、乐器修正收敛效果显著；但不清晰音频（直播、嘈杂源）的**音符召回不如 7 月版**，以丢音符换精确度。**7 月版依旧有实用性，不淘汰**，两版并存：清晰源用 0824，不清晰源可加转 7 月版对比。
 
 ---
 
