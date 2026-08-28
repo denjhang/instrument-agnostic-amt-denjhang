@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
-r"""新版(20260823)批量转换 G:\网络视频-2026\哔哩哔哩视频（视频+音频混合）
+"""新版(20260823)转换 E:\\存储器备份\\2024.10.30 音乐卡16G 全部（排除 vgm/midi音乐/备份）
 
-输出: 20260825\哔哩哔哩视频\<UP主>\<相对结构>.mid  保留源目录结构
-流程: ffmpeg 提音频 -> stem分离 -> 专用模型 -> 乐器修正 -> 合并 -> 力度 -> 节拍/和弦
-跳过: .m4s（B站缓存分片，无法处理）
-用法: .venv\Scripts\python.exe run_bili_newver.py [--dry-run]
+输出: 20260824\\音乐卡\\<文件夹>\\<相对结构>.mid  保留源目录结构
+网络收集(已由 run_newver_stem.py 转完)断点续跑自动跳过
+用法: .venv\\Scripts\\python.exe run_card_newver.py [--dry-run]
 """
 
-import io
-import os
-import shutil
-import sys
-import time
-import hashlib as _hl
+import io, os, shutil, sys, time, hashlib as _hl
 from datetime import datetime
 from pathlib import Path
 
@@ -23,15 +17,15 @@ if getattr(sys.stdout, 'encoding', '') != 'utf-8':
 ROOT = Path(r"D:\working\vscode-projects\instrument-agnostic-amt-main")
 NEW_DIR = ROOT / "newversion-20260823" / "instrument-agnostic-amt-main"
 VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
-WORKER_SCRIPT = ROOT / "_bili_newver_worker.py"
-LOG_FILE = ROOT / "run_bili_newver.log"
+WORKER_SCRIPT = ROOT / "_archive_newver_worker.py"
+LOG_FILE = ROOT / "run_archive_newver.log"
 
-SOURCE = Path(r"G:\网络视频-2026\哔哩哔哩视频")
-TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\哔哩哔哩视频")
-WORK_DIR = TARGET / "_work"
+SOURCE = Path(r"F:\存储器备份\2023.1.17 音乐档案\MP3格式")
+TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\音乐档案\MP3格式")
+WORK_DIR = TARGET / "_work3"
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma", ".aiff", ".aif", ".opus"}
-VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
+EXCLUDE = {"召唤之夜系列", "喜马拉雅-巴赫", "夜的钢琴曲系列51首"}
 
 
 def log(msg):
@@ -45,30 +39,16 @@ def log(msg):
 
 
 def write_worker_script():
-    worker_code = '''import os, sys, shutil, hashlib, subprocess
+    worker_code = '''import os, sys, shutil, hashlib
 from pathlib import Path
 sys.path.insert(0, r"{NEW_DIR}")
 os.chdir(r"{ROOT}")
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-from imageio_ffmpeg import get_ffmpeg_exe
 from infer_stem import run_stem_separated_transcription
 
 audio = Path(sys.argv[1])
 out_root = Path(sys.argv[2])
 
-# 视频容器: 先 ffmpeg 提音频（soundfile 不支持视频）
-VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
-if audio.suffix.lower() in VIDEO_EXTS:
-    wav = out_root / "_audio_input.wav"
-    out_root.mkdir(parents=True, exist_ok=True)
-    cmd = [get_ffmpeg_exe(), "-y", "-i", str(audio), "-vn", "-acodec", "pcm_s16le",
-           "-ar", "44100", "-ac", "2", str(wav)]
-    r = subprocess.run(cmd, capture_output=True)
-    if r.returncode != 0 or not wav.exists():
-        print("FFMPEG_FAIL"); sys.exit(2)
-    audio = wav
-
-# Windows 路径超 260 防护
 orig_stem = audio.stem
 short_stem = "s" + hashlib.md5(orig_stem.encode("utf-8")).hexdigest()[:10]
 est_path_len = len(str(out_root)) + len(orig_stem) * 5 + 80
@@ -87,17 +67,11 @@ else:
     run_out_root = out_root
 
 r = run_stem_separated_transcription(
-    run_audio,
-    checkpoint_path=None,
-    output_root=str(run_out_root),
-    window_batch_size=4,
-    max_midi_melodic_instruments=15,
-    transcribe_drum_stems=True,
-    predict_velocity=True,
-    refine_instruments=True,
-    predict_beat_chord=True,
-    cleanup_separated_stems=True,
-    merge_onset_ms=20.0,
+    run_audio, checkpoint_path=None, output_root=str(run_out_root),
+    window_batch_size=4, max_midi_melodic_instruments=15,
+    transcribe_drum_stems=True, predict_velocity=True,
+    refine_instruments=True, predict_beat_chord=True,
+    cleanup_separated_stems=True, merge_onset_ms=20.0,
 )
 print("MERGED:" + str(r["merged_midi_path"]))
 '''.replace("{NEW_DIR}", str(NEW_DIR)).replace("{ROOT}", str(ROOT))
@@ -107,10 +81,12 @@ print("MERGED:" + str(r["merged_midi_path"]))
 def find_files():
     files = []
     for f in sorted(SOURCE.rglob("*")):
-        if not f.is_file():
+        if not f.is_file() or f.suffix.lower() not in AUDIO_EXTS:
             continue
-        if f.suffix.lower() in AUDIO_EXTS or f.suffix.lower() in VIDEO_EXTS:
-            files.append(f)
+        rel = f.relative_to(SOURCE)
+        if any(p in EXCLUDE for p in rel.parts):
+            continue
+        files.append(f)
     return files
 
 
@@ -135,8 +111,7 @@ def worker_proc(task_queue, result_queue, gpu_id):
         idx, total, audio, final = item
         disp = str(audio.relative_to(SOURCE))
         t0 = time.time()
-        work_name = "b" + _hl.md5(disp.encode("utf-8")).hexdigest()[:12]
-        work_root = WORK_DIR / work_name
+        work_root = WORK_DIR / ("m" + _hl.md5(disp.encode("utf-8")).hexdigest()[:12])
         try:
             result = sp.run(
                 [str(VENV_PY), "-u", str(WORKER_SCRIPT), str(audio), str(work_root)],
@@ -178,21 +153,19 @@ def main():
 
     LOG_FILE.write_text("", encoding="utf-8")
     log("=" * 50)
-    log("新版(20260823) 哔哩哔哩视频批量转换")
+    log("新版(20260823) 音乐档案MP3格式游戏音乐（排除召唤之夜/巴赫/夜的钢琴曲）")
     log(f"源: {SOURCE}")
     log(f"目标: {TARGET}")
 
     files = find_files()
     pending = [f for f in files if not (expected_final(f).exists() and expected_final(f).stat().st_size > 100)]
-    # 风流先森优先（用户点名），其余按原顺序排后
-    pending.sort(key=lambda f: (f.relative_to(SOURCE).parts[0] != "风流先森",))
+    from collections import Counter
+    c = Counter(f.relative_to(SOURCE).parts[0] for f in files)
+    for k, v in sorted(c.items()):
+        log(f"  ({v:3d}) {k}")
     log(f"总文件: {len(files)}, 待转换: {len(pending)}")
 
     if args.dry_run:
-        from collections import Counter
-        c = Counter(f.relative_to(SOURCE).parts[0] for f in pending)
-        for k, v in c.most_common():
-            log(f"  ({v:3d}) {k}")
         return
     if not pending:
         log("全部已完成")
@@ -200,7 +173,7 @@ def main():
 
     write_worker_script()
     from multiprocessing import Process, Queue
-    GPUS = [0, 1]
+    GPUS = [0]  # 单worker（GPU已近满载）
 
     total = len(pending)
     task_queue = Queue()
@@ -242,7 +215,7 @@ def main():
     log("=" * 50)
     log(f"完成: 成功 {done}, 失败 {failed}, 总计 {total}, 耗时 {(time.time()-t_start)/60:.1f} 分钟")
     shutil.rmtree(WORK_DIR, ignore_errors=True)
-    log("已清理 _work")
+    log("已清理 _work2")
 
 
 if __name__ == "__main__":

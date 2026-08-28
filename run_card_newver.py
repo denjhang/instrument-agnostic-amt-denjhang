@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-r"""新版(20260823)批量转换 G:\网络视频-2026\哔哩哔哩视频（视频+音频混合）
+#!/usr/bin/env python3
+r"""新版(20260823)音乐卡批量转换 E:\存储器备份\2024.10.30 音乐卡16G（视频+音频混合）
 
 输出: 20260825\哔哩哔哩视频\<UP主>\<相对结构>.mid  保留源目录结构
 流程: ffmpeg 提音频 -> stem分离 -> 专用模型 -> 乐器修正 -> 合并 -> 力度 -> 节拍/和弦
@@ -23,15 +24,15 @@ if getattr(sys.stdout, 'encoding', '') != 'utf-8':
 ROOT = Path(r"D:\working\vscode-projects\instrument-agnostic-amt-main")
 NEW_DIR = ROOT / "newversion-20260823" / "instrument-agnostic-amt-main"
 VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
-WORKER_SCRIPT = ROOT / "_bili_newver_worker.py"
-LOG_FILE = ROOT / "run_bili_newver.log"
+WORKER_SCRIPT = ROOT / "_card_newver_worker.py"
+LOG_FILE = ROOT / "run_card_newver.log"
 
-SOURCE = Path(r"G:\网络视频-2026\哔哩哔哩视频")
-TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\哔哩哔哩视频")
-WORK_DIR = TARGET / "_work"
+SOURCE = Path(r"E:\存储器备份\2024.10.30 音乐卡16G")
+TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\音乐卡")
+WORK_DIR = TARGET / "_work2"
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma", ".aiff", ".aif", ".opus"}
-VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
+EXCLUDE = {"vgm", "midi音乐", "备份", "Android", "LOST.DIR", "System Volume Information"}
 
 
 def log(msg):
@@ -50,23 +51,10 @@ from pathlib import Path
 sys.path.insert(0, r"{NEW_DIR}")
 os.chdir(r"{ROOT}")
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-from imageio_ffmpeg import get_ffmpeg_exe
 from infer_stem import run_stem_separated_transcription
 
 audio = Path(sys.argv[1])
 out_root = Path(sys.argv[2])
-
-# 视频容器: 先 ffmpeg 提音频（soundfile 不支持视频）
-VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
-if audio.suffix.lower() in VIDEO_EXTS:
-    wav = out_root / "_audio_input.wav"
-    out_root.mkdir(parents=True, exist_ok=True)
-    cmd = [get_ffmpeg_exe(), "-y", "-i", str(audio), "-vn", "-acodec", "pcm_s16le",
-           "-ar", "44100", "-ac", "2", str(wav)]
-    r = subprocess.run(cmd, capture_output=True)
-    if r.returncode != 0 or not wav.exists():
-        print("FFMPEG_FAIL"); sys.exit(2)
-    audio = wav
 
 # Windows 路径超 260 防护
 orig_stem = audio.stem
@@ -109,8 +97,11 @@ def find_files():
     for f in sorted(SOURCE.rglob("*")):
         if not f.is_file():
             continue
-        if f.suffix.lower() in AUDIO_EXTS or f.suffix.lower() in VIDEO_EXTS:
-            files.append(f)
+        if f.suffix.lower() not in AUDIO_EXTS:
+            continue
+        if any(p in EXCLUDE for p in f.relative_to(SOURCE).parts):
+            continue
+        files.append(f)
     return files
 
 
@@ -178,14 +169,12 @@ def main():
 
     LOG_FILE.write_text("", encoding="utf-8")
     log("=" * 50)
-    log("新版(20260823) 哔哩哔哩视频批量转换")
+    log("新版(20260823) 音乐卡16G全量转换(排除vgm/midi音乐/备份)")
     log(f"源: {SOURCE}")
     log(f"目标: {TARGET}")
 
     files = find_files()
     pending = [f for f in files if not (expected_final(f).exists() and expected_final(f).stat().st_size > 100)]
-    # 风流先森优先（用户点名），其余按原顺序排后
-    pending.sort(key=lambda f: (f.relative_to(SOURCE).parts[0] != "风流先森",))
     log(f"总文件: {len(files)}, 待转换: {len(pending)}")
 
     if args.dry_run:

@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
-r"""新版(20260823)批量转换 G:\网络视频-2026\哔哩哔哩视频（视频+音频混合）
-
-输出: 20260825\哔哩哔哩视频\<UP主>\<相对结构>.mid  保留源目录结构
-流程: ffmpeg 提音频 -> stem分离 -> 专用模型 -> 乐器修正 -> 合并 -> 力度 -> 节拍/和弦
-跳过: .m4s（B站缓存分片，无法处理）
-用法: .venv\Scripts\python.exe run_bili_newver.py [--dry-run]
+"""新版(20260823) AI音乐合集转换
+规则: 同目录同名文件 mp3 优先, 有 mp3 的 mp4 跳过; 无对应 mp3 的 mp4 用 ffmpeg 提音频
+输出: 20260824\\音乐档案\\AI音乐合集\\<相对结构>.mid
 """
-
-import io
-import os
-import shutil
-import sys
-import time
-import hashlib as _hl
+import io, os, shutil, sys, time, hashlib as _hl
 from datetime import datetime
 from pathlib import Path
 
@@ -23,12 +14,12 @@ if getattr(sys.stdout, 'encoding', '') != 'utf-8':
 ROOT = Path(r"D:\working\vscode-projects\instrument-agnostic-amt-main")
 NEW_DIR = ROOT / "newversion-20260823" / "instrument-agnostic-amt-main"
 VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
-WORKER_SCRIPT = ROOT / "_bili_newver_worker.py"
-LOG_FILE = ROOT / "run_bili_newver.log"
+WORKER_SCRIPT = ROOT / "_ai_newver_worker.py"
+LOG_FILE = ROOT / "run_ai_newver.log"
 
-SOURCE = Path(r"G:\网络视频-2026\哔哩哔哩视频")
-TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\哔哩哔哩视频")
-WORK_DIR = TARGET / "_work"
+SOURCE = Path(r"F:\存储器备份\2023.1.17 音乐档案\AI音乐合集")
+TARGET = Path(r"D:\开源合集\开源 2022.9.14\芯片音乐\自制芯片音乐\MIDI识别合集\MIDI识别 2026\20260824\音乐档案\AI音乐合集")
+WORK_DIR = TARGET / "_work7"
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma", ".aiff", ".aif", ".opus"}
 VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
@@ -37,11 +28,8 @@ VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
 def log(msg):
     line = f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] {msg}"
     print(line, flush=True)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 
 def write_worker_script():
@@ -56,7 +44,6 @@ from infer_stem import run_stem_separated_transcription
 audio = Path(sys.argv[1])
 out_root = Path(sys.argv[2])
 
-# 视频容器: 先 ffmpeg 提音频（soundfile 不支持视频）
 VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
 if audio.suffix.lower() in VIDEO_EXTS:
     wav = out_root / "_audio_input.wav"
@@ -68,37 +55,26 @@ if audio.suffix.lower() in VIDEO_EXTS:
         print("FFMPEG_FAIL"); sys.exit(2)
     audio = wav
 
-# Windows 路径超 260 防护
 orig_stem = audio.stem
 short_stem = "s" + hashlib.md5(orig_stem.encode("utf-8")).hexdigest()[:10]
 est_path_len = len(str(out_root)) + len(orig_stem) * 5 + 80
 need_short = est_path_len > 240 or len(orig_stem) > 30
-
 if need_short:
     tmp_dir = out_root.parent / "_short_inputs"
     tmp_dir.mkdir(parents=True, exist_ok=True)
     short_audio = tmp_dir / (short_stem + audio.suffix)
     if not short_audio.exists():
         shutil.copy2(str(audio), str(short_audio))
-    run_audio = short_audio
-    run_out_root = out_root / short_stem
+    run_audio, run_out_root = short_audio, out_root / short_stem
 else:
-    run_audio = audio
-    run_out_root = out_root
+    run_audio, run_out_root = audio, out_root
 
 r = run_stem_separated_transcription(
-    run_audio,
-    checkpoint_path=None,
-    output_root=str(run_out_root),
-    window_batch_size=4,
-    max_midi_melodic_instruments=15,
-    transcribe_drum_stems=True,
-    predict_velocity=True,
-    refine_instruments=True,
-    predict_beat_chord=True,
-    cleanup_separated_stems=True,
-    merge_onset_ms=20.0,
-)
+    run_audio, checkpoint_path=None, output_root=str(run_out_root),
+    window_batch_size=4, max_midi_melodic_instruments=15,
+    transcribe_drum_stems=True, predict_velocity=True,
+    refine_instruments=True, predict_beat_chord=True,
+    cleanup_separated_stems=True, merge_onset_ms=20.0)
 print("MERGED:" + str(r["merged_midi_path"]))
 '''.replace("{NEW_DIR}", str(NEW_DIR)).replace("{ROOT}", str(ROOT))
     WORKER_SCRIPT.write_text(worker_code, encoding="utf-8")
@@ -107,10 +83,13 @@ print("MERGED:" + str(r["merged_midi_path"]))
 def find_files():
     files = []
     for f in sorted(SOURCE.rglob("*")):
-        if not f.is_file():
+        if not f.is_file() or f.suffix.lower() not in (AUDIO_EXTS | VIDEO_EXTS):
             continue
-        if f.suffix.lower() in AUDIO_EXTS or f.suffix.lower() in VIDEO_EXTS:
-            files.append(f)
+        # mp3优先: 若同名音频版本存在, 跳过视频版
+        if f.suffix.lower() in VIDEO_EXTS:
+            if any((f.with_suffix(e)).exists() for e in AUDIO_EXTS):
+                continue
+        files.append(f)
     return files
 
 
@@ -135,8 +114,7 @@ def worker_proc(task_queue, result_queue, gpu_id):
         idx, total, audio, final = item
         disp = str(audio.relative_to(SOURCE))
         t0 = time.time()
-        work_name = "b" + _hl.md5(disp.encode("utf-8")).hexdigest()[:12]
-        work_root = WORK_DIR / work_name
+        work_root = WORK_DIR / ("a" + _hl.md5(disp.encode("utf-8")).hexdigest()[:12])
         try:
             result = sp.run(
                 [str(VENV_PY), "-u", str(WORKER_SCRIPT), str(audio), str(work_root)],
@@ -162,7 +140,7 @@ def worker_proc(task_queue, result_queue, gpu_id):
                 shutil.rmtree(work_root, ignore_errors=True)
                 result_queue.put(("OK", idx, total, disp, gpu_id, elapsed, final.stat().st_size))
             else:
-                shutil.rmtree(work_root, ignore_errors=True)  # 失败也清work防爆盘
+                shutil.rmtree(work_root, ignore_errors=True)
                 err = (result.stderr or result.stdout or "")[-200:]
                 result_queue.put(("FAIL", idx, total, disp, gpu_id, elapsed, err.strip()[:150]))
         except Exception as e:
@@ -171,54 +149,30 @@ def worker_proc(task_queue, result_queue, gpu_id):
 
 
 def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args()
-
     LOG_FILE.write_text("", encoding="utf-8")
-    log("=" * 50)
-    log("新版(20260823) 哔哩哔哩视频批量转换")
-    log(f"源: {SOURCE}")
-    log(f"目标: {TARGET}")
-
+    log("AI音乐合集转换 (mp3优先去重, mp4提音频)")
     files = find_files()
     pending = [f for f in files if not (expected_final(f).exists() and expected_final(f).stat().st_size > 100)]
-    # 风流先森优先（用户点名），其余按原顺序排后
-    pending.sort(key=lambda f: (f.relative_to(SOURCE).parts[0] != "风流先森",))
-    log(f"总文件: {len(files)}, 待转换: {len(pending)}")
-
-    if args.dry_run:
-        from collections import Counter
-        c = Counter(f.relative_to(SOURCE).parts[0] for f in pending)
-        for k, v in c.most_common():
-            log(f"  ({v:3d}) {k}")
-        return
+    log(f"总文件(去重后): {len(files)}, 待转换: {len(pending)}")
     if not pending:
-        log("全部已完成")
-        return
+        log("全部已完成"); return
 
     write_worker_script()
     from multiprocessing import Process, Queue
     GPUS = [0, 1]
-
     total = len(pending)
-    task_queue = Queue()
-    result_queue = Queue()
+    task_queue = Queue(); result_queue = Queue()
     for i, f in enumerate(pending, 1):
         task_queue.put((i, total, f, expected_final(f)))
     for _ in GPUS:
         task_queue.put(None)
-
     procs = []
     for gpu_id in GPUS:
         p = Process(target=worker_proc, args=(task_queue, result_queue, gpu_id), daemon=True)
         p.start(); procs.append(p)
-        log(f"启动 Worker GPU{gpu_id} (pid {p.pid})")
+        log(f"启动 Worker GPU{gpu_id}")
         time.sleep(10)
-
-    t_start = time.time()
-    done = failed = 0
+    t_start = time.time(); done = failed = 0
     while done + failed < total:
         try:
             item = result_queue.get(timeout=30)
@@ -235,14 +189,11 @@ def main():
         rate = (done + failed) / et * 60 if et > 0 else 0
         remain = (total - done - failed) / rate if rate > 0 else 0
         log(f"  进度: {done+failed}/{total} ({(done+failed)*100//total}%) {rate:.1f}/min 剩余 ~{remain:.0f}min")
-
     for p in procs:
         p.join(timeout=5)
-
-    log("=" * 50)
     log(f"完成: 成功 {done}, 失败 {failed}, 总计 {total}, 耗时 {(time.time()-t_start)/60:.1f} 分钟")
     shutil.rmtree(WORK_DIR, ignore_errors=True)
-    log("已清理 _work")
+    log("已清理 _work7")
 
 
 if __name__ == "__main__":

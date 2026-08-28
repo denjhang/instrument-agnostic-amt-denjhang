@@ -1,0 +1,43 @@
+import os, sys, shutil, hashlib, subprocess
+from pathlib import Path
+sys.path.insert(0, r"D:\working\vscode-projects\instrument-agnostic-amt-main\newversion-20260823\instrument-agnostic-amt-main")
+os.chdir(r"D:\working\vscode-projects\instrument-agnostic-amt-main")
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+from imageio_ffmpeg import get_ffmpeg_exe
+from infer_stem import run_stem_separated_transcription
+
+audio = Path(sys.argv[1])
+out_root = Path(sys.argv[2])
+
+VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
+if audio.suffix.lower() in VIDEO_EXTS:
+    wav = out_root / "_audio_input.wav"
+    out_root.mkdir(parents=True, exist_ok=True)
+    cmd = [get_ffmpeg_exe(), "-y", "-i", str(audio), "-vn", "-acodec", "pcm_s16le",
+           "-ar", "44100", "-ac", "2", str(wav)]
+    r = subprocess.run(cmd, capture_output=True)
+    if r.returncode != 0 or not wav.exists():
+        print("FFMPEG_FAIL"); sys.exit(2)
+    audio = wav
+
+orig_stem = audio.stem
+short_stem = "s" + hashlib.md5(orig_stem.encode("utf-8")).hexdigest()[:10]
+est_path_len = len(str(out_root)) + len(orig_stem) * 5 + 80
+need_short = est_path_len > 240 or len(orig_stem) > 30
+if need_short:
+    tmp_dir = out_root.parent / "_short_inputs"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    short_audio = tmp_dir / (short_stem + audio.suffix)
+    if not short_audio.exists():
+        shutil.copy2(str(audio), str(short_audio))
+    run_audio, run_out_root = short_audio, out_root / short_stem
+else:
+    run_audio, run_out_root = audio, out_root
+
+r = run_stem_separated_transcription(
+    run_audio, checkpoint_path=None, output_root=str(run_out_root),
+    window_batch_size=4, max_midi_melodic_instruments=15,
+    transcribe_drum_stems=True, predict_velocity=True,
+    refine_instruments=True, predict_beat_chord=True,
+    cleanup_separated_stems=True, merge_onset_ms=20.0)
+print("MERGED:" + str(r["merged_midi_path"]))

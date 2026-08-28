@@ -104,7 +104,25 @@ nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader
 
 ### 🔄 进行中
 
-（暂无——新任务待用户下载后触发）
+（无——20260824 版全部任务已于 2026-08-28 收官，共产出 **8759 首 MIDI**）
+
+| 20260824 版任务 | 成果 |
+|------|------|
+| 哔哩哔哩视频（含周杰伦两合集/红警3两套OST/怒之铁拳4/AI续写系列） | 2951 |
+| 音乐卡 16G 全量（排除 vgm/midi音乐/备份） | 1102 |
+| 音乐档案游戏音乐（赛尔号/PopKart/QQ系/梦4/铸剑物語）+ 召唤之夜 | 661 |
+| 喜马拉雅（未分类） | 850+ |
+| qq音乐+网易云音乐（巴赫名家+游戏作曲家） | 2164/2165 |
+| AI音乐合集 0824版 / 0726版（双版本对照） | 260 / 146 |
+| x88 放大300 双版本对照 | 262 |
+| 版本对比实验 | 3 |
+
+### 经验教训（20260824 工程期间）
+
+1. **特殊编码 mp3**（qq音乐下载的 mqms 系）：表头可读但解码中途崩，soundfile/audioread 全挂。解法：ffmpeg 预转标准 wav 再进管线（run_qq_seq_retry.py）
+2. **audioread 无后端**：系统 PATH 无 ffmpeg，需在 worker 里把 audioread.ffdec.COMMANDS 指向 imageio_ffmpeg 绝对路径
+3. **8 worker 并行内存挤爆**：CUDA bad allocation + numpy OOM 连环失败，4-6 worker 为安全上限；失败补跑用断点续跑自愈
+4. **多任务断点续跑+失败清理+即清机制**经受住多次盘满/进程被杀考验
 
 ### ⏳ 待启动
 
