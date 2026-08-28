@@ -19,6 +19,7 @@
 
 - **2026-08-24 起产线切换为 `newversion-20260823`**（官方 main b7beee9）。新增能力：Instrument Refinement 乐器修正（refine_instruments）、beat/chord/key 推断（predict_beat_chord）、other_v1_5 模型、Semi-CRF 提速/AMP。此前任务（截至 20260729 目录全部）均为 `newversion-20260726` 产出，不回溯重转。
 - **实听结论（2026-08-25，用户评测）**：0824 版对**小提琴、多乐器协奏曲（如竖笛+Harpsichord）、管风琴的识别率有大幅提升**——说明官方是针对某些情况（特定乐器/编制）做的提升，并非全面提升。但**不清晰音频的音符数量不如 7 月版**——以丢失部分音符换取精确度，整体"部分精确、部分丢失"。**7 月版（20260726）依旧有实用性**，不淘汰；对不清晰/嘈杂源（直播、老录音）可考虑用 7 月版补转对比。
+- **AI音乐双版本结论（2026-08-28，用户评测）**：AI 生成音乐**优先用 0824 版**；7 月版只适合**单乐器 + 音质模糊**的源（如 x88 内录）。7 月版定位收窄为特定场景工具。
 - **CC11 表情分支（haveyouwantto/expression）彻底弃用（2026-08-25 定论）**：纯 DSP 响度包络写 CC11，无专门训练，小提琴实测忽大忽小、力度变化范围过大，"勉强实现的功能"。对比文件在 `20260824/版本对比-雨后轻风有香/` 和 `20260824/音乐卡/网络收集/youtube one/Sonatas & Partitas CC11/`（未跑完即停）。
 - 新批量脚本模板改动：worker 里 `sys.path` 指向 `newversion-20260823/instrument-agnostic-amt-main`，`from infer_stem import run_stem_separated_transcription`，调用参数加 `refine_instruments=True, predict_beat_chord=True`，最终产物为 `<曲名>_beat_chord.mid`。
 
