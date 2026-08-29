@@ -117,6 +117,13 @@ nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader
 | x88 放大300 双版本对照 | 262 |
 | 版本对比实验 | 3 |
 
+### 2026-08-29 官方更新
+
+- **官方库改名 tsumugi**（原 instrument-agnostic-amt，代码同一项目），最新代码在 `newversion-tsumugi-20260829/tsumugi/`
+- **新模型 Vocal Harmony v1.5**（2026-08-25, `best_model_vocal_harmony_v1_5.pth`，已入共享 checkpoints/）：人声 stem COnP 0.6052→0.6814，新代码中已设为 vocals 默认。注意：v1_5 单 Pitch Slot，**不预测声部内同时发声的音符**（合唱和声会少轨）
+- 其余模型文件未变（md5 同 8/23）
+- **切换时机**：等当前在跑任务（酷我等）结束后，新版批量脚本 sys.path 改指 tsumugi 目录再启用；对合唱/和声内容多的源，v1.5 与旧 vocal_harmony 可对比选用
+
 ### 经验教训（20260824 工程期间）
 
 1. **特殊编码 mp3**（qq音乐下载的 mqms 系）：表头可读但解码中途崩，soundfile/audioread 全挂。解法：ffmpeg 预转标准 wav 再进管线（run_qq_seq_retry.py）
