@@ -117,6 +117,12 @@ nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader
 | x88 放大300 双版本对照 | 262 |
 | 版本对比实验 | 3 |
 
+### 2026-08-29 酷我对账批次完成
+
+- 酷我 1536 首全部转完（1534 直接成功 + 2 首特殊编码 mp3 经 ffmpeg 预转 wav 救回），输出 `20260824\酷我\<专辑>\`
+- 含 7 月截止线漏掉的大部头：The Solo Keyboard Works 205、WTK 96、Opera Omnia 100、English Renaissance 98、Sweelinck 全套、红警3 双音源、巴赫无伴奏小提琴 S&P 31 等
+- 20260824 目录总量达 **10401 首**
+
 ### 2026-08-29 官方更新
 
 - **官方库改名 tsumugi**（原 instrument-agnostic-amt，代码同一项目），最新代码在 `newversion-tsumugi-20260829/tsumugi/`
