@@ -9,6 +9,15 @@ from infer_stem import run_stem_separated_transcription
 audio = Path(sys.argv[1])
 out_root = Path(sys.argv[2])
 
+# 源路径超长防护: 深层专辑路径可超260, CopyFile2/ffmpeg 都会 WinError 3。
+# 先用 \\?\ 前缀把源复制成短名, 后续 ffmpeg 提取/soundfile 全走短路径。
+if len(str(audio)) > 200:
+    out_root.mkdir(parents=True, exist_ok=True)
+    short_in = out_root / ("src" + hashlib.md5(str(audio).encode("utf-8")).hexdigest()[:10] + audio.suffix)
+    if not short_in.exists():
+        shutil.copy2("\\\\?\\" + os.path.abspath(str(audio)), str(short_in))
+    audio = short_in
+
 # 视频容器: 先 ffmpeg 提音频（soundfile 不支持视频）
 VIDEO_EXTS = {".mp4", ".mkv", ".flv", ".webm", ".mov", ".avi", ".ts", ".m4v"}
 if audio.suffix.lower() in VIDEO_EXTS:
